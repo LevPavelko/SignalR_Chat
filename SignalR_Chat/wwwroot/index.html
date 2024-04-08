@@ -67,6 +67,8 @@
             color: rgb(255, 81, 0);
             font-size: 22px;
         }
+       
+
     </style>
 </head>
 <body>
@@ -87,8 +89,9 @@
             <div id="chatroom"></div>
 
             <div class="centerDiv">
-                <p class="welcome" style="font-size: 18px; margin-left: 10px;"><b>All users:</b></p>
-                <ul id="chatusers"></ul>
+                <p class="welcome" style="font-size: 18px; margin-left: 10px;"><b>All active users:</b></p>
+                <p><ul id="chatusers" ></ul></p>
+                
             </div>
         </div>
         <input id="hdId" type="hidden" />
@@ -117,10 +120,10 @@
 
             // Метод hubConnection.on устанавливает функцию на стороне клиента, 
             // которая будет получать данные от сервера (хаба)
-            hubConnection.on("AddMessage", function (name, message) {
+            hubConnection.on("AddMessage", function (name, message, date) {
                 // Добавление сообщений на веб-страницу
                 $('#chatroom').append('<p class="message"><b>' + htmlEncode(name)
-                    + '</b>: <i>' + htmlEncode(message) + '</i></p>');
+                    + '</b>: <i>' + htmlEncode(message) + htmlEncode(date) +'</i></p>' );
             });
 
             // Функция, вызываемая сервером при подключении нового пользователя
@@ -132,12 +135,15 @@
                 $('#hdId').val(id);
                 $('#username').val(userName);
                 $('#header').html('<h3>Welcome, ' + userName + '</h3>');
-
+               
+              
                 // Добавление всех пользователей
                 for (i = 0; i < allUsers.length; i++) {
 
                     AddUser(allUsers[i].connectionId, allUsers[i].name);
                 }
+                
+                
             });
 
             // Функция, вызываемая сервером для добавления нового пользователя
@@ -152,6 +158,17 @@
                 $('#' + id).remove();
             });
 
+            hubConnection.on("ShowHistory", function (history) {
+                if (history != null) {
+                    for (var i = 0; i < history.length; i++) {
+                        var message = history[i];
+
+
+                        $('#chatroom').append('<p class="message"><b>' + htmlEncode(message) + '</b></p>');
+                    }
+                }
+            });
+
             // Открываем соединение с сервером.
             // Если подключение к хабу успешно установлено,
             // то сработает метод then, чтобы выполнить некоторые действия.
@@ -162,9 +179,13 @@
                         // отправка сообщения
                         $('#sendmessage').click(function () {
                             // Вызываем у хаба метод Send и передаем ему данные.
-                            // В случае, если при отправке возникнет ошибка, 
+                            // В случае, если при отправке возникнет ошибка,
                             // то сработает функция, которая передается в метод catch().
-                            hubConnection.invoke("Send", $('#username').val(), $('#message').val())
+                            let currentTime = new Date();
+                            let date = currentTime.getTime();
+                            
+                            alert(date);
+                            hubConnection.invoke("Send", $('#username').val(), $('#message').val(), currentTime)
                                          .catch(function (err) {
                                                 return console.error(err.toString());
                                                 });
@@ -179,6 +200,11 @@
                                 // В случае, если при отправке возникнет ошибка,
                                 // то сработает функция, которая передается в метод catch().
                                 hubConnection.invoke("Connect", name)
+                                    .catch(function (err) {
+                                        return console.error(err.toString());
+                                    });
+
+                                hubConnection.invoke("History")
                                     .catch(function (err) {
                                         return console.error(err.toString());
                                     });

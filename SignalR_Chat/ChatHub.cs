@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using System.Collections.Generic;
+using Microsoft.AspNetCore.SignalR;
 
 namespace SignalR_Chat
 {
@@ -10,13 +11,29 @@ namespace SignalR_Chat
     */
     public class ChatHub : Hub
     {
+        private ChatContext db;
         static List<User> Users = new List<User>();
+       static List<string> history = new List<string>();
+        public ChatHub(ChatContext context)
+        {
+            db = context;
+        }
 
         // Отправка сообщений
-        public async Task Send(string username, string message)
+        public async Task Send(string username, string message, DateTime date)
         {
-            // Вызов метода AddMessage на всех клиентах
-            await Clients.All.SendAsync("AddMessage", username, message);
+            
+           
+            var newMessage = new Messages
+            {
+                
+                Message = username + ": " + message + " " + date
+                
+            };
+           
+            db.Messages.Add(newMessage);
+            db.SaveChanges();
+            await Clients.All.SendAsync("AddMessage", username, message,date);
         }
 
         // Подключение нового пользователя
@@ -24,16 +41,27 @@ namespace SignalR_Chat
         {
             var id = Context.ConnectionId;
 
+           
             if (!Users.Any(x => x.ConnectionId == id))
             {
                 Users.Add(new User { ConnectionId = id, Name = userName });
 
+              
+
                 // Вызов метода Connected только на текущем клиенте, который обратился к серверу
-                await Clients.Caller.SendAsync("Connected", id, userName, Users);
+                await Clients.Caller.SendAsync("Connected", id, userName, Users, history);
 
                 // Вызов метода NewUserConnected на всех клиентах, кроме клиента с определенным id
                 await Clients.AllExcept(id).SendAsync("NewUserConnected", id, userName);
             }
+        }
+        public async Task History()
+        {
+            //var id = Context.ConnectionId;
+
+            var mess =  db.Messages.Select(m => m.Message).ToList();
+             history.AddRange(mess);
+            await Clients.Caller.SendAsync("ShowHistory", history);
         }
 
         // OnDisconnectedAsync срабатывает при отключении клиента.
